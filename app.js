@@ -200,8 +200,20 @@ function setCard(id, net) {
   const el = document.getElementById(id);
   el.textContent = formatMoney(net, true);
 
+  // 依顯示字串長度分級，支援最多 7 位數（含符號與千分位）
+  // short  ≤6:  "+$999"
+  // medium 7-8: "+$5,092" / "+$12,345"
+  // long   9-11: "+$123,456" / "+$1,234,567"
+  // xl     12-13: "-$1,234,567" / "+$12,345,678"
+  // xxl    14+:  "-$12,345,678"
   const len = el.textContent.length;
-  el.dataset.len = len <= 7 ? 'short' : len <= 9 ? 'medium' : len <= 11 ? 'long' : 'xl';
+  let lenClass;
+  if      (len <= 6)  lenClass = 'short';
+  else if (len <= 8)  lenClass = 'medium';
+  else if (len <= 11) lenClass = 'long';
+  else if (len <= 13) lenClass = 'xl';
+  else                lenClass = 'xxl';
+  el.dataset.len = lenClass;
 
   const card = el.closest('.card');
   card.classList.remove('positive', 'negative');

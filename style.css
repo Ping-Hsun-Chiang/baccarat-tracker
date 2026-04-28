@@ -123,12 +123,14 @@ header h1 {
   font-weight: 800;
   color: var(--text-dim);
   letter-spacing: -0.5px;
-  word-break: break-all;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .card-value[data-len="medium"] { font-size: clamp(0.8rem, 3.8vw, 1.6rem); }
 .card-value[data-len="long"]   { font-size: clamp(0.68rem, 3.2vw, 1.35rem); }
 .card-value[data-len="xl"]     { font-size: clamp(0.58rem, 2.7vw, 1.15rem); }
+.card-value[data-len="xxl"]    { font-size: clamp(0.5rem,  2.3vw, 1rem); }
 
 .card.positive { border-color: var(--win-border); }
 .card.positive .card-value { color: var(--win); }
@@ -626,11 +628,16 @@ tr:hover td { background: rgba(255,255,255,0.02); }
     gap: 8px;
   }
   .card {
-    padding: 16px 10px;
+    padding: 16px 8px;
   }
-  .card-value {
-    font-size: 1.3rem;
-  }
+
+  /* 每張卡約 106px 寬，依字數漸縮字體，確保不換行 */
+  .card-value               { font-size: 1.15rem; }
+  .card-value[data-len="medium"] { font-size: 0.95rem; }
+  .card-value[data-len="long"]   { font-size: 0.78rem; }
+  .card-value[data-len="xl"]     { font-size: 0.66rem; }
+  .card-value[data-len="xxl"]    { font-size: 0.56rem; }
+
   .input-blocks { grid-template-columns: 1fr; }
   .shared-fields { flex-direction: column; }
   .section-header { flex-direction: column; align-items: flex-start; gap: 10px; }
