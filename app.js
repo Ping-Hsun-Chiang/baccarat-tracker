@@ -1,10 +1,9 @@
 // ── State ─────────────────────────────────────────────────────────────────────
 
-let records = [];       // local cache
+let records = [];
 let chart   = null;
 let pendingAction = null;
 let chartMonth    = null;
-let sqlLogVisible = true;
 
 // ── Init (called by auth.js after login) ──────────────────────────────────────
 
@@ -21,14 +20,6 @@ async function initApp() {
 // ── Data: load ────────────────────────────────────────────────────────────────
 
 async function loadRecords() {
-  const userId = (await supa.auth.getUser()).data.user.id;
-
-  addSQLLog(
-    `SELECT id, date, type, amount, note FROM records\n` +
-    `WHERE user_id = '${short(userId)}'\n` +
-    `ORDER BY date DESC, id DESC`
-  );
-
   const { data, error } = await supa
     .from('records')
     .select('id, date, type, amount, note')
@@ -51,12 +42,6 @@ async function addRecord(type) {
 
   const userId = (await supa.auth.getUser()).data.user.id;
 
-  addSQLLog(
-    `INSERT INTO records (user_id, date, type, amount, note)\n` +
-    `VALUES ('${short(userId)}', '${date}', '${type}', ${amount}, '${note}')\n` +
-    `RETURNING *`
-  );
-
   const { data, error } = await supa
     .from('records')
     .insert({ user_id: userId, date, type, amount, note })
@@ -76,13 +61,6 @@ async function addRecord(type) {
 
 function deleteRecord(id) {
   openModal('確定要刪除這筆記錄嗎？', async () => {
-    const userId = (await supa.auth.getUser()).data.user.id;
-
-    addSQLLog(
-      `DELETE FROM records\n` +
-      `WHERE id = ${id} AND user_id = '${short(userId)}'`
-    );
-
     await supa.from('records').delete().eq('id', id);
     records = records.filter(r => r.id !== id);
     render();
@@ -95,12 +73,6 @@ function confirmClearAll() {
   if (records.length === 0) return;
   openModal('確定要清除全部記錄嗎？此操作無法復原！', async () => {
     const userId = (await supa.auth.getUser()).data.user.id;
-
-    addSQLLog(
-      `DELETE FROM records\n` +
-      `WHERE user_id = '${short(userId)}'`
-    );
-
     await supa.from('records').delete().eq('user_id', userId);
     records = [];
     render();
@@ -296,41 +268,6 @@ function renderRecordsTable() {
   });
 }
 
-// ── SQL Log panel ─────────────────────────────────────────────────────────────
-
-function addSQLLog(sql) {
-  const container = document.getElementById('sqlLog');
-  const empty = container.querySelector('.sql-log-empty');
-  if (empty) empty.remove();
-
-  const time = new Date().toLocaleTimeString('zh-TW', { hour12: false });
-  const item = document.createElement('div');
-  item.className = 'sql-log-item';
-  item.innerHTML = `
-    <span class="sql-time">${time}</span>
-    <span class="sql-stmt">${highlightSQL(escapeHtml(sql))}</span>
-  `;
-  container.insertBefore(item, container.firstChild);
-  while (container.children.length > 30) container.removeChild(container.lastChild);
-}
-
-function highlightSQL(sql) {
-  return sql.replace(
-    /\b(SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|INTO|VALUES|CREATE|TABLE|AND|OR|ORDER BY|GROUP BY|RETURNING|NOT|IN|CHECK|DEFAULT|REFERENCES|ON DELETE CASCADE|UNIQUE|PRIMARY KEY|NUMERIC|TEXT|UUID|BIGSERIAL|TIMESTAMPTZ|ENABLE ROW LEVEL SECURITY|POLICY|FOR|USING|WITH CHECK)\b/g,
-    '<span class="sql-kw">$1</span>'
-  );
-}
-
-function escapeHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-function toggleSQLLog() {
-  const wrap = document.getElementById('sqlLogWrap');
-  sqlLogVisible = !sqlLogVisible;
-  wrap.style.display = sqlLogVisible ? '' : 'none';
-  document.getElementById('sqlToggleText').textContent = sqlLogVisible ? '收合' : '展開';
-}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -353,10 +290,6 @@ function formatMoney(n, signed) {
   if (n > 0) return '+' + abs;
   if (n < 0) return '-' + abs;
   return abs;
-}
-
-function short(uuid) {
-  return uuid ? uuid.slice(0, 8) + '...' : '';
 }
 
 // ── Modal ─────────────────────────────────────────────────────────────────────

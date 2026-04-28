@@ -186,7 +186,9 @@ section {
 
 input[type="date"],
 input[type="number"],
-input[type="text"] {
+input[type="text"],
+input[type="tel"],
+input[type="password"] {
   background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -613,110 +615,6 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 
 .btn-logout:hover { border-color: var(--loss-border); color: var(--loss); }
 
-/* ── SQL Log ── */
-.sql-section { padding-bottom: 20px; }
-
-.sql-engine-badge {
-  display: inline-block;
-  font-size: 0.6rem;
-  font-weight: 600;
-  letter-spacing: 1px;
-  color: #64748b;
-  border: 1px solid #1e293b;
-  border-radius: 4px;
-  padding: 2px 7px;
-  margin-left: 10px;
-  vertical-align: middle;
-  font-family: 'JetBrains Mono', monospace;
-}
-
-.btn-toggle-sql {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  border-radius: 6px;
-  padding: 4px 10px;
-  font-size: 0.72rem;
-  font-family: inherit;
-  cursor: pointer;
-  transition: border-color 0.2s, color 0.2s;
-}
-
-.btn-toggle-sql:hover { border-color: var(--border-hover); color: var(--text); }
-
-.sql-schema {
-  background: #070710;
-  border: 1px solid #1e293b;
-  border-radius: 8px;
-  padding: 14px 16px;
-  margin-bottom: 12px;
-}
-
-.sql-schema-label {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.62rem;
-  color: #334155;
-  letter-spacing: 2px;
-  margin-bottom: 8px;
-}
-
-.sql-schema-code {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.78rem;
-  color: #64748b;
-  line-height: 1.7;
-  white-space: pre-wrap;
-  word-break: break-all;
-  overflow-x: auto;
-}
-
-.sql-log {
-  background: #070710;
-  border: 1px solid #1e293b;
-  border-radius: 8px;
-  padding: 12px 0;
-  max-height: 280px;
-  overflow-y: auto;
-}
-
-.sql-log-empty {
-  text-align: center;
-  color: #334155;
-  font-size: 0.8rem;
-  font-family: 'JetBrains Mono', monospace;
-  padding: 20px;
-}
-
-.sql-log-item {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  padding: 7px 16px;
-  border-bottom: 1px solid rgba(255,255,255,0.03);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.78rem;
-  line-height: 1.5;
-  flex-wrap: wrap;
-}
-
-.sql-log-item:last-child { border-bottom: none; }
-.sql-log-item:hover { background: rgba(255,255,255,0.02); }
-
-.sql-time {
-  color: #334155;
-  font-size: 0.68rem;
-  flex-shrink: 0;
-}
-
-.sql-stmt { color: #94a3b8; word-break: break-all; }
-
-.sql-kw { color: #60a5fa; font-weight: 500; }
-
-.sql-params {
-  color: #475569;
-  font-size: 0.7rem;
-  word-break: break-all;
-}
 
 /* ── Loading overlay ── */
 .loading-overlay {

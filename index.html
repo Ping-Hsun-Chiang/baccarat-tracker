@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>百家樂戰績記錄</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -159,42 +159,6 @@
       </div>
     </section>
 
-    <!-- SQL 查詢紀錄 -->
-    <section class="sql-section">
-      <div class="section-header">
-        <div class="section-title">
-          SQL 查詢紀錄
-          <span class="sql-engine-badge">PostgreSQL · Supabase</span>
-        </div>
-        <button class="btn-toggle-sql" onclick="toggleSQLLog()">
-          <span id="sqlToggleText">收合</span>
-        </button>
-      </div>
-      <div id="sqlLogWrap">
-        <div class="sql-schema">
-          <div class="sql-schema-label">TABLE SCHEMA</div>
-          <pre class="sql-schema-code">-- profiles
-CREATE TABLE profiles (
-  id    UUID  PRIMARY KEY REFERENCES auth.users(id),
-  name  TEXT  NOT NULL,
-  phone TEXT  NOT NULL UNIQUE
-);
-
--- records
-CREATE TABLE records (
-  id       BIGSERIAL PRIMARY KEY,
-  user_id  UUID      NOT NULL REFERENCES auth.users(id),
-  date     TEXT      NOT NULL,
-  type     TEXT      NOT NULL CHECK (type IN ('win','loss')),
-  amount   NUMERIC   NOT NULL CHECK (amount &gt; 0),
-  note     TEXT      NOT NULL DEFAULT ''
-);</pre>
-        </div>
-        <div class="sql-log" id="sqlLog">
-          <div class="sql-log-empty">尚無查詢記錄</div>
-        </div>
-      </div>
-    </section>
   </div>
 
   <!-- 確認對話框 -->
