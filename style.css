@@ -4,6 +4,10 @@
   box-sizing: border-box;
 }
 
+html, body {
+  overflow-x: hidden;
+}
+
 :root {
   --bg: #080812;
   --surface: #10101e;
@@ -520,7 +524,9 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   font-size: 0.78rem;
   color: #64748b;
   line-height: 1.7;
-  white-space: pre;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-x: auto;
 }
 
 .sql-log {
@@ -611,7 +617,15 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 
 /* ── Responsive ── */
 @media (max-width: 600px) {
-  .summary-cards { grid-template-columns: 1fr; }
+  .summary-cards {
+    gap: 8px;
+  }
+  .card {
+    padding: 16px 10px;
+  }
+  .card-value {
+    font-size: 1.3rem;
+  }
   .input-blocks { grid-template-columns: 1fr; }
   .shared-fields { flex-direction: column; }
   .section-header { flex-direction: column; align-items: flex-start; gap: 10px; }
