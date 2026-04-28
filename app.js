@@ -1,137 +1,113 @@
-// ── SQLite (sql.js via WebAssembly) ──────────────────────────────────────────
+// ── State ─────────────────────────────────────────────────────────────────────
 
-const DB_KEY = 'baccarat_sqlite';
-const LEGACY_KEY = 'baccarat_records';
-
-let db = null;
-let chart = null;
+let records = [];       // local cache
+let chart   = null;
 let pendingAction = null;
-let chartMonth = null;
+let chartMonth    = null;
 let sqlLogVisible = true;
 
-// ── DB init ───────────────────────────────────────────────────────────────────
+// ── Init (called by auth.js after login) ──────────────────────────────────────
 
-async function initDB() {
-  const SQL = await initSqlJs({
-    locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${f}`,
-  });
-
-  const saved = localStorage.getItem(DB_KEY);
-  if (saved) {
-    const buf = base64ToUint8(saved);
-    db = new SQL.Database(buf);
-  } else {
-    db = new SQL.Database();
-  }
-
-  execSQL(`
-    CREATE TABLE IF NOT EXISTS records (
-      id      INTEGER  PRIMARY KEY AUTOINCREMENT,
-      date    TEXT     NOT NULL,
-      type    TEXT     NOT NULL  CHECK(type IN ('win','loss')),
-      amount  REAL     NOT NULL  CHECK(amount > 0),
-      note    TEXT     NOT NULL  DEFAULT ''
-    )
-  `);
-
-  migrateLegacy();
-  persistDB();
-}
-
-function persistDB() {
-  const buf = db.export();
-  localStorage.setItem(DB_KEY, uint8ToBase64(buf));
-}
-
-// Migrate old JSON-in-localStorage format (one-time)
-function migrateLegacy() {
-  const raw = localStorage.getItem(LEGACY_KEY);
-  if (!raw) return;
-  try {
-    const rows = JSON.parse(raw);
-    rows.forEach(r => {
-      execSQL(
-        `INSERT OR IGNORE INTO records (id, date, type, amount, note) VALUES (?, ?, ?, ?, ?)`,
-        [r.id, r.date, r.type, r.amount, r.note || ''],
-        false
-      );
-    });
-    localStorage.removeItem(LEGACY_KEY);
-    persistDB();
-  } catch (_) {}
-}
-
-// ── SQL helpers ───────────────────────────────────────────────────────────────
-
-function execSQL(sql, params = [], log = true) {
-  db.run(sql, params);
-  if (log) addSQLLog(sql, params);
-}
-
-function querySQL(sql, params = [], log = true) {
-  const stmt = db.prepare(sql);
-  if (params.length) stmt.bind(params);
-  const rows = [];
-  while (stmt.step()) rows.push(stmt.getAsObject());
-  stmt.free();
-  if (log) addSQLLog(sql, params);
-  return rows;
-}
-
-// ── App init ──────────────────────────────────────────────────────────────────
-
-async function init() {
-  await initDB();
-
+async function initApp() {
   const today = localDateStr(new Date());
   document.getElementById('recordDate').value = today;
   chartMonth = today.slice(0, 7);
 
+  await loadRecords();
   document.getElementById('loadingOverlay').style.display = 'none';
-
   render();
 }
 
-// ── Add / Delete ──────────────────────────────────────────────────────────────
+// ── Data: load ────────────────────────────────────────────────────────────────
 
-function addRecord(type) {
+async function loadRecords() {
+  const userId = (await supa.auth.getUser()).data.user.id;
+
+  addSQLLog(
+    `SELECT id, date, type, amount, note FROM records\n` +
+    `WHERE user_id = '${short(userId)}'\n` +
+    `ORDER BY date DESC, id DESC`
+  );
+
+  const { data, error } = await supa
+    .from('records')
+    .select('id, date, type, amount, note')
+    .order('date', { ascending: false })
+    .order('id',   { ascending: false });
+
+  if (!error) records = data ?? [];
+}
+
+// ── Data: add ─────────────────────────────────────────────────────────────────
+
+async function addRecord(type) {
   const amountId = type === 'win' ? 'winAmount' : 'lossAmount';
   const date   = document.getElementById('recordDate').value;
   const amount = parseFloat(document.getElementById(amountId).value);
   const note   = document.getElementById('recordNote').value.trim();
 
-  if (!date) return alert('請選擇日期');
+  if (!date)                        return alert('請選擇日期');
   if (isNaN(amount) || amount <= 0) return alert('請輸入有效金額');
 
-  execSQL(
-    `INSERT INTO records (date, type, amount, note) VALUES (?, ?, ?, ?)`,
-    [date, type, amount, note]
+  const userId = (await supa.auth.getUser()).data.user.id;
+
+  addSQLLog(
+    `INSERT INTO records (user_id, date, type, amount, note)\n` +
+    `VALUES ('${short(userId)}', '${date}', '${type}', ${amount}, '${note}')\n` +
+    `RETURNING *`
   );
-  persistDB();
+
+  const { data, error } = await supa
+    .from('records')
+    .insert({ user_id: userId, date, type, amount, note })
+    .select('id, date, type, amount, note')
+    .single();
+
+  if (error) { alert('新增失敗，請稍後再試'); return; }
+
+  records.unshift(data);
+  records.sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
 
   document.getElementById(amountId).value = '';
   render();
 }
 
+// ── Data: delete ──────────────────────────────────────────────────────────────
+
 function deleteRecord(id) {
-  openModal('確定要刪除這筆記錄嗎？', () => {
-    execSQL(`DELETE FROM records WHERE id = ?`, [id]);
-    persistDB();
+  openModal('確定要刪除這筆記錄嗎？', async () => {
+    const userId = (await supa.auth.getUser()).data.user.id;
+
+    addSQLLog(
+      `DELETE FROM records\n` +
+      `WHERE id = ${id} AND user_id = '${short(userId)}'`
+    );
+
+    await supa.from('records').delete().eq('id', id);
+    records = records.filter(r => r.id !== id);
     render();
   });
 }
+
+// ── Data: clear all ───────────────────────────────────────────────────────────
 
 function confirmClearAll() {
-  const count = querySQL(`SELECT COUNT(*) AS n FROM records`, [], false)[0].n;
-  if (count === 0) return;
-  openModal('確定要清除全部記錄嗎？此操作無法復原！', () => {
-    execSQL(`DELETE FROM records`);
-    persistDB();
+  if (records.length === 0) return;
+  openModal('確定要清除全部記錄嗎？此操作無法復原！', async () => {
+    const userId = (await supa.auth.getUser()).data.user.id;
+
+    addSQLLog(
+      `DELETE FROM records\n` +
+      `WHERE user_id = '${short(userId)}'`
+    );
+
+    await supa.from('records').delete().eq('user_id', userId);
+    records = [];
     render();
   });
 }
 
-// ── Month navigation ──────────────────────────────────────────────────────────
+// ── Month nav ─────────────────────────────────────────────────────────────────
 
 function shiftMonth(delta) {
   const base = chartMonth || localDateStr(new Date()).slice(0, 7);
@@ -171,49 +147,26 @@ function render() {
   renderRecordsTable();
 }
 
+function calcNet(recs) {
+  return recs.reduce((s, r) => s + (r.type === 'win' ? r.amount : -r.amount), 0);
+}
+
 function renderSummary() {
   const todayStr  = localDateStr(new Date());
   const thisMonth = todayStr.slice(0, 7);
   const thisYear  = todayStr.slice(0, 4);
 
-  const totalNet = calcNetSQL(`SELECT type, amount FROM records`);
-  const monthNet = calcNetSQL(
-    `SELECT type, amount FROM records WHERE date LIKE ?`,
-    [`${thisMonth}%`]
-  );
-  const yearNet = calcNetSQL(
-    `SELECT type, amount FROM records WHERE date LIKE ?`,
-    [`${thisYear}%`]
-  );
-
-  setCard('totalNet', totalNet);
-  setCard('monthNet', monthNet);
-  setCard('yearNet', yearNet);
-}
-
-function calcNetSQL(sql, params = []) {
-  const rows = querySQL(sql, params);
-  return rows.reduce((s, r) => s + (r.type === 'win' ? r.amount : -r.amount), 0);
+  setCard('totalNet', calcNet(records));
+  setCard('monthNet', calcNet(records.filter(r => r.date.startsWith(thisMonth))));
+  setCard('yearNet',  calcNet(records.filter(r => r.date.startsWith(thisYear))));
 }
 
 function setCard(id, net) {
   const el = document.getElementById(id);
   el.textContent = formatMoney(net, true);
 
-  // 依顯示字串長度分級，支援最多 7 位數（含符號與千分位）
-  // short  ≤6:  "+$999"
-  // medium 7-8: "+$5,092" / "+$12,345"
-  // long   9-11: "+$123,456" / "+$1,234,567"
-  // xl     12-13: "-$1,234,567" / "+$12,345,678"
-  // xxl    14+:  "-$12,345,678"
   const len = el.textContent.length;
-  let lenClass;
-  if      (len <= 6)  lenClass = 'short';
-  else if (len <= 8)  lenClass = 'medium';
-  else if (len <= 11) lenClass = 'long';
-  else if (len <= 13) lenClass = 'xl';
-  else                lenClass = 'xxl';
-  el.dataset.len = lenClass;
+  el.dataset.len = len <= 6 ? 'short' : len <= 8 ? 'medium' : len <= 11 ? 'long' : len <= 13 ? 'xl' : 'xxl';
 
   const card = el.closest('.card');
   card.classList.remove('positive', 'negative');
@@ -222,27 +175,16 @@ function setCard(id, net) {
 }
 
 function renderChart() {
-  const sql = chartMonth
-    ? `SELECT date,
-              SUM(CASE WHEN type='win'  THEN amount ELSE 0 END) AS win,
-              SUM(CASE WHEN type='loss' THEN amount ELSE 0 END) AS loss
-       FROM records
-       WHERE date LIKE ?
-       GROUP BY date
-       ORDER BY date`
-    : `SELECT date,
-              SUM(CASE WHEN type='win'  THEN amount ELSE 0 END) AS win,
-              SUM(CASE WHEN type='loss' THEN amount ELSE 0 END) AS loss
-       FROM records
-       GROUP BY date
-       ORDER BY date`;
+  const filtered = chartMonth
+    ? records.filter(r => r.date.startsWith(chartMonth))
+    : records;
 
-  const rows = querySQL(sql, chartMonth ? [`${chartMonth}%`] : []);
+  const daily = groupByDate([...filtered].reverse());
+  const dates = Object.keys(daily).sort();
 
   let cumulative = 0;
-  const labels = rows.map(r => r.date);
-  const data   = rows.map(r => {
-    cumulative += r.win - r.loss;
+  const data = dates.map(d => {
+    cumulative += daily[d].win - daily[d].loss;
     return cumulative;
   });
 
@@ -251,24 +193,22 @@ function renderChart() {
 
   const lastVal   = data[data.length - 1] ?? 0;
   const lineColor = lastVal >= 0 ? '#22c55e' : '#ef4444';
-
-  const gradient = ctx.createLinearGradient(0, 0, 0, 230);
+  const gradient  = ctx.createLinearGradient(0, 0, 0, 230);
   gradient.addColorStop(0, lastVal >= 0 ? 'rgba(34,197,94,0.18)' : 'rgba(239,68,68,0.18)');
   gradient.addColorStop(1, 'rgba(0,0,0,0)');
 
   chart = new Chart(ctx, {
     type: 'line',
     data: {
-      labels,
+      labels: dates,
       datasets: [{
-        label: '累計損益',
         data,
         borderColor: lineColor,
         borderWidth: 2,
         backgroundColor: gradient,
         pointBackgroundColor: data.map(v => v >= 0 ? '#22c55e' : '#ef4444'),
         pointBorderColor:     data.map(v => v >= 0 ? '#22c55e' : '#ef4444'),
-        pointRadius: data.length <= 31 ? 4 : 2,
+        pointRadius:      data.length <= 31 ? 4 : 2,
         pointHoverRadius: 6,
         tension: 0.35,
         fill: true,
@@ -292,17 +232,17 @@ function renderChart() {
       scales: {
         x: {
           ticks: { color: '#475569', font: { size: 11, family: 'Inter' } },
-          grid: { color: 'rgba(255,255,255,0.04)' },
-          border: { color: 'transparent' },
+          grid:  { color: 'rgba(255,255,255,0.04)' },
+          border:{ color: 'transparent' },
         },
         y: {
           ticks: {
             color: '#475569',
-            font: { size: 11, family: 'Inter' },
+            font:  { size: 11, family: 'Inter' },
             callback: v => formatMoney(v, false),
           },
-          grid: { color: 'rgba(255,255,255,0.04)' },
-          border: { color: 'transparent' },
+          grid:  { color: 'rgba(255,255,255,0.04)' },
+          border:{ color: 'transparent' },
         },
       },
     },
@@ -310,29 +250,23 @@ function renderChart() {
 }
 
 function renderDailyTable() {
-  const rows = querySQL(
-    `SELECT date,
-            SUM(CASE WHEN type='win'  THEN amount ELSE 0 END) AS win,
-            SUM(CASE WHEN type='loss' THEN amount ELSE 0 END) AS loss
-     FROM records
-     GROUP BY date
-     ORDER BY date DESC`
-  );
-
+  const daily = groupByDate([...records].reverse());
+  const dates = Object.keys(daily).sort().reverse();
   const tbody = document.getElementById('dailyTableBody');
   tbody.innerHTML = '';
 
-  if (rows.length === 0) {
+  if (dates.length === 0) {
     tbody.innerHTML = '<tr class="empty-row"><td colspan="4">尚無記錄</td></tr>';
     return;
   }
 
-  rows.forEach(({ date, win, loss }) => {
+  dates.forEach(date => {
+    const { win, loss } = daily[date];
     const net = win - loss;
     const tr  = document.createElement('tr');
     tr.innerHTML = `
       <td>${date}</td>
-      <td class="amount-win">${win > 0 ? formatMoney(win, false) : '-'}</td>
+      <td class="amount-win">${win  > 0 ? formatMoney(win, false)  : '-'}</td>
       <td class="amount-loss">${loss > 0 ? formatMoney(loss, false) : '-'}</td>
       <td class="${net >= 0 ? 'amount-positive' : 'amount-negative'}">${formatMoney(net, true)}</td>
     `;
@@ -341,16 +275,15 @@ function renderDailyTable() {
 }
 
 function renderRecordsTable() {
-  const rows  = querySQL(`SELECT * FROM records ORDER BY date DESC, id DESC`);
   const tbody = document.getElementById('recordsTableBody');
   tbody.innerHTML = '';
 
-  if (rows.length === 0) {
+  if (records.length === 0) {
     tbody.innerHTML = '<tr class="empty-row"><td colspan="5">尚無記錄，請從上方新增</td></tr>';
     return;
   }
 
-  rows.forEach(r => {
+  records.forEach(r => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${r.date}</td>
@@ -365,37 +298,31 @@ function renderRecordsTable() {
 
 // ── SQL Log panel ─────────────────────────────────────────────────────────────
 
-function addSQLLog(sql, params) {
+function addSQLLog(sql) {
   const container = document.getElementById('sqlLog');
   const empty = container.querySelector('.sql-log-empty');
   if (empty) empty.remove();
 
-  const clean = sql.trim().replace(/\s+/g, ' ');
-  const time  = new Date().toLocaleTimeString('zh-TW', { hour12: false });
-
+  const time = new Date().toLocaleTimeString('zh-TW', { hour12: false });
   const item = document.createElement('div');
   item.className = 'sql-log-item';
-
-  const paramStr = params.length
-    ? `<span class="sql-params">— [${params.map(p => JSON.stringify(p)).join(', ')}]</span>`
-    : '';
-
   item.innerHTML = `
     <span class="sql-time">${time}</span>
-    <span class="sql-stmt">${highlightSQL(clean)}</span>
-    ${paramStr}
+    <span class="sql-stmt">${highlightSQL(escapeHtml(sql))}</span>
   `;
-
   container.insertBefore(item, container.firstChild);
-
-  // Keep at most 30 entries
   while (container.children.length > 30) container.removeChild(container.lastChild);
 }
 
 function highlightSQL(sql) {
-  const kw = /\b(SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|INTO|VALUES|CREATE|TABLE|IF NOT EXISTS|PRIMARY KEY|AUTOINCREMENT|ORDER BY|GROUP BY|LIKE|SUM|CASE|WHEN|THEN|ELSE|END|AND|OR|NOT|IN|CHECK|DEFAULT|TEXT|REAL|INTEGER)\b/g;
-  return sql.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(kw, '<span class="sql-kw">$1</span>');
+  return sql.replace(
+    /\b(SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|INTO|VALUES|CREATE|TABLE|AND|OR|ORDER BY|GROUP BY|RETURNING|NOT|IN|CHECK|DEFAULT|REFERENCES|ON DELETE CASCADE|UNIQUE|PRIMARY KEY|NUMERIC|TEXT|UUID|BIGSERIAL|TIMESTAMPTZ|ENABLE ROW LEVEL SECURITY|POLICY|FOR|USING|WITH CHECK)\b/g,
+    '<span class="sql-kw">$1</span>'
+  );
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 function toggleSQLLog() {
@@ -407,11 +334,17 @@ function toggleSQLLog() {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+function groupByDate(recs) {
+  const map = {};
+  recs.forEach(r => {
+    if (!map[r.date]) map[r.date] = { win: 0, loss: 0 };
+    map[r.date][r.type === 'win' ? 'win' : 'loss'] += Number(r.amount);
+  });
+  return map;
+}
+
 function localDateStr(date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
 }
 
 function formatMoney(n, signed) {
@@ -422,17 +355,8 @@ function formatMoney(n, signed) {
   return abs;
 }
 
-function uint8ToBase64(buf) {
-  let binary = '';
-  for (let i = 0; i < buf.length; i++) binary += String.fromCharCode(buf[i]);
-  return btoa(binary);
-}
-
-function base64ToUint8(b64) {
-  const binary = atob(b64);
-  const buf = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) buf[i] = binary.charCodeAt(i);
-  return buf;
+function short(uuid) {
+  return uuid ? uuid.slice(0, 8) + '...' : '';
 }
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
@@ -456,7 +380,6 @@ document.getElementById('modalOverlay').addEventListener('click', e => {
   if (e.target === e.currentTarget) closeModal();
 });
 
-// Enter shortcuts
 document.addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
   const id = document.activeElement?.id;
@@ -464,10 +387,6 @@ document.addEventListener('keydown', e => {
   if (id === 'lossAmount') addRecord('loss');
 });
 
-// Date picker anywhere
 document.getElementById('recordDate').addEventListener('click', function () {
   try { this.showPicker(); } catch (_) {}
 });
-
-// ── Start ─────────────────────────────────────────────────────────────────────
-init();

@@ -9,9 +9,64 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+
+  <!-- ── 登入 / 註冊 ─────────────────────────────────── -->
+  <div class="auth-overlay" id="authOverlay">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <div class="header-badge">BACCARAT</div>
+        <h1>戰績記錄</h1>
+      </div>
+
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-tab="login"    onclick="switchAuthTab('login')">登入</button>
+        <button class="auth-tab"        data-tab="register" onclick="switchAuthTab('register')">註冊</button>
+      </div>
+
+      <!-- 登入表單 -->
+      <form class="auth-form" id="loginForm">
+        <div class="form-group">
+          <label>手機號碼</label>
+          <input type="tel" id="loginPhone" placeholder="09xxxxxxxx" autocomplete="username" />
+        </div>
+        <div class="form-group">
+          <label>密碼</label>
+          <input type="password" id="loginPassword" placeholder="請輸入密碼" autocomplete="current-password" />
+        </div>
+        <div class="auth-error" id="loginError"></div>
+        <button type="submit" class="btn-auth">登入</button>
+      </form>
+
+      <!-- 註冊表單 -->
+      <form class="auth-form hidden" id="registerForm">
+        <div class="form-group">
+          <label>姓名</label>
+          <input type="text" id="regName" placeholder="請輸入姓名" autocomplete="name" />
+        </div>
+        <div class="form-group">
+          <label>手機號碼</label>
+          <input type="tel" id="regPhone" placeholder="09xxxxxxxx" autocomplete="username" />
+        </div>
+        <div class="form-group">
+          <label>密碼</label>
+          <input type="password" id="regPassword" placeholder="至少 6 個字元" autocomplete="new-password" />
+        </div>
+        <div class="auth-error" id="registerError"></div>
+        <button type="submit" class="btn-auth">建立帳號</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── 主要內容 ────────────────────────────────────── -->
   <div class="container">
     <header>
-      <div class="header-badge">BACCARAT</div>
+      <div class="header-top">
+        <div class="header-badge">BACCARAT</div>
+        <div class="user-bar" id="userBar" style="display:none">
+          <span class="user-name" id="userNameDisplay"></span>
+          <button class="btn-logout" onclick="logout()">登出</button>
+        </div>
+      </div>
       <h1>戰績記錄</h1>
       <p class="subtitle">每日輸贏統計追蹤</p>
     </header>
@@ -84,14 +139,7 @@
       </div>
       <div class="table-wrapper">
         <table>
-          <thead>
-            <tr>
-              <th>日期</th>
-              <th>贏</th>
-              <th>輸</th>
-              <th>當日損益</th>
-            </tr>
-          </thead>
+          <thead><tr><th>日期</th><th>贏</th><th>輸</th><th>當日損益</th></tr></thead>
           <tbody id="dailyTableBody"></tbody>
         </table>
       </div>
@@ -105,15 +153,7 @@
       </div>
       <div class="table-wrapper">
         <table>
-          <thead>
-            <tr>
-              <th>日期</th>
-              <th>結果</th>
-              <th>金額</th>
-              <th>備註</th>
-              <th></th>
-            </tr>
-          </thead>
+          <thead><tr><th>日期</th><th>結果</th><th>金額</th><th>備註</th><th></th></tr></thead>
           <tbody id="recordsTableBody"></tbody>
         </table>
       </div>
@@ -124,7 +164,7 @@
       <div class="section-header">
         <div class="section-title">
           SQL 查詢紀錄
-          <span class="sql-engine-badge">SQLite · WebAssembly</span>
+          <span class="sql-engine-badge">PostgreSQL · Supabase</span>
         </div>
         <button class="btn-toggle-sql" onclick="toggleSQLLog()">
           <span id="sqlToggleText">收合</span>
@@ -133,12 +173,21 @@
       <div id="sqlLogWrap">
         <div class="sql-schema">
           <div class="sql-schema-label">TABLE SCHEMA</div>
-          <pre class="sql-schema-code">CREATE TABLE records (
-  id      INTEGER  PRIMARY KEY AUTOINCREMENT,
-  date    TEXT     NOT NULL,
-  type    TEXT     NOT NULL  CHECK(type IN ('win','loss')),
-  amount  REAL     NOT NULL  CHECK(amount &gt; 0),
-  note    TEXT     NOT NULL  DEFAULT ''
+          <pre class="sql-schema-code">-- profiles
+CREATE TABLE profiles (
+  id    UUID  PRIMARY KEY REFERENCES auth.users(id),
+  name  TEXT  NOT NULL,
+  phone TEXT  NOT NULL UNIQUE
+);
+
+-- records
+CREATE TABLE records (
+  id       BIGSERIAL PRIMARY KEY,
+  user_id  UUID      NOT NULL REFERENCES auth.users(id),
+  date     TEXT      NOT NULL,
+  type     TEXT      NOT NULL CHECK (type IN ('win','loss')),
+  amount   NUMERIC   NOT NULL CHECK (amount &gt; 0),
+  note     TEXT      NOT NULL DEFAULT ''
 );</pre>
         </div>
         <div class="sql-log" id="sqlLog">
@@ -163,12 +212,14 @@
   <div class="loading-overlay" id="loadingOverlay">
     <div class="loading-box">
       <div class="loading-spinner"></div>
-      <div class="loading-text">載入 SQLite 引擎...</div>
+      <div class="loading-text">連線中...</div>
     </div>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="supabase.js"></script>
   <script src="app.js"></script>
+  <script src="auth.js"></script>
 </body>
 </html>
