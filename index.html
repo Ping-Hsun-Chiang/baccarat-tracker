@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>百家樂戰績記錄</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="header-badge">BACCARAT</div>
+      <h1>戰績記錄</h1>
+      <p class="subtitle">每日輸贏統計追蹤</p>
+    </header>
+
+    <!-- 總覽卡片 -->
+    <section class="summary-cards">
+      <div class="card" id="cardTotal">
+        <div class="card-label">總損益</div>
+        <div class="card-value" id="totalNet">$0</div>
+      </div>
+      <div class="card" id="cardMonth">
+        <div class="card-label">當月損益</div>
+        <div class="card-value" id="monthNet">$0</div>
+      </div>
+      <div class="card" id="cardYear">
+        <div class="card-label">當年損益</div>
+        <div class="card-value" id="yearNet">$0</div>
+      </div>
+    </section>
+
+    <!-- 新增記錄 -->
+    <section class="add-record">
+      <div class="section-title">新增記錄</div>
+      <div class="shared-fields">
+        <div class="form-group">
+          <label>日期</label>
+          <input type="date" id="recordDate" />
+        </div>
+        <div class="form-group">
+          <label>備註（選填）</label>
+          <input type="text" id="recordNote" placeholder="備註..." />
+        </div>
+      </div>
+      <div class="input-blocks">
+        <div class="input-block win-block">
+          <div class="block-icon win-icon">▲</div>
+          <div class="block-title">贏</div>
+          <input type="number" id="winAmount" placeholder="0" min="0" />
+          <button class="btn-win" onclick="addRecord('win')">新增</button>
+        </div>
+        <div class="input-block loss-block">
+          <div class="block-icon loss-icon">▼</div>
+          <div class="block-title">輸</div>
+          <input type="number" id="lossAmount" placeholder="0" min="0" />
+          <button class="btn-loss" onclick="addRecord('loss')">新增</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 損益走勢 -->
+    <section class="chart-section">
+      <div class="section-header">
+        <div class="section-title">損益走勢</div>
+        <div class="month-nav">
+          <button class="nav-btn" onclick="shiftMonth(-1)">&#8249;</button>
+          <span id="chartMonthLabel"></span>
+          <button class="nav-btn" onclick="shiftMonth(1)">&#8250;</button>
+          <button class="btn-all-months" onclick="viewAllMonths()">全部</button>
+        </div>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="profitChart"></canvas>
+      </div>
+    </section>
+
+    <!-- 每日彙總 -->
+    <section class="daily-section">
+      <div class="section-header">
+        <div class="section-title">每日彙總</div>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>日期</th>
+              <th>贏</th>
+              <th>輸</th>
+              <th>當日損益</th>
+            </tr>
+          </thead>
+          <tbody id="dailyTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 明細記錄 -->
+    <section class="records-section">
+      <div class="section-header">
+        <div class="section-title">明細記錄</div>
+        <button class="btn-danger" onclick="confirmClearAll()">清除全部</button>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>日期</th>
+              <th>結果</th>
+              <th>金額</th>
+              <th>備註</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="recordsTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SQL 查詢紀錄 -->
+    <section class="sql-section">
+      <div class="section-header">
+        <div class="section-title">
+          SQL 查詢紀錄
+          <span class="sql-engine-badge">SQLite · WebAssembly</span>
+        </div>
+        <button class="btn-toggle-sql" onclick="toggleSQLLog()">
+          <span id="sqlToggleText">收合</span>
+        </button>
+      </div>
+      <div id="sqlLogWrap">
+        <div class="sql-schema">
+          <div class="sql-schema-label">TABLE SCHEMA</div>
+          <pre class="sql-schema-code">CREATE TABLE records (
+  id      INTEGER  PRIMARY KEY AUTOINCREMENT,
+  date    TEXT     NOT NULL,
+  type    TEXT     NOT NULL  CHECK(type IN ('win','loss')),
+  amount  REAL     NOT NULL  CHECK(amount &gt; 0),
+  note    TEXT     NOT NULL  DEFAULT ''
+);</pre>
+        </div>
+        <div class="sql-log" id="sqlLog">
+          <div class="sql-log-empty">尚無查詢記錄</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- 確認對話框 -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+      <p id="modalMessage"></p>
+      <div class="modal-buttons">
+        <button class="btn-confirm" id="modalConfirm">確定</button>
+        <button class="btn-cancel" onclick="closeModal()">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 初始化中遮罩 -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-box">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">載入 SQLite 引擎...</div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
