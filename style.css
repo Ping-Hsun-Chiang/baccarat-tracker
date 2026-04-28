@@ -119,11 +119,16 @@ header h1 {
 }
 
 .card-value {
-  font-size: 1.9rem;
+  font-size: clamp(0.9rem, 4.5vw, 1.9rem);
   font-weight: 800;
   color: var(--text-dim);
   letter-spacing: -0.5px;
+  word-break: break-all;
 }
+
+.card-value[data-len="medium"] { font-size: clamp(0.8rem, 3.8vw, 1.6rem); }
+.card-value[data-len="long"]   { font-size: clamp(0.68rem, 3.2vw, 1.35rem); }
+.card-value[data-len="xl"]     { font-size: clamp(0.58rem, 2.7vw, 1.15rem); }
 
 .card.positive { border-color: var(--win-border); }
 .card.positive .card-value { color: var(--win); }

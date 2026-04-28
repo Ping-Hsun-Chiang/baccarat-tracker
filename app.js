@@ -199,6 +199,10 @@ function calcNetSQL(sql, params = []) {
 function setCard(id, net) {
   const el = document.getElementById(id);
   el.textContent = formatMoney(net, true);
+
+  const len = el.textContent.length;
+  el.dataset.len = len <= 7 ? 'short' : len <= 9 ? 'medium' : len <= 11 ? 'long' : 'xl';
+
   const card = el.closest('.card');
   card.classList.remove('positive', 'negative');
   if (net > 0) card.classList.add('positive');
