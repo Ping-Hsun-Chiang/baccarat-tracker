@@ -77,13 +77,17 @@
         <div class="card-label">總損益</div>
         <div class="card-value" id="totalNet">$0</div>
       </div>
+      <div class="card" id="cardYear">
+        <div class="card-label">當年損益</div>
+        <div class="card-value" id="yearNet">$0</div>
+      </div>
       <div class="card" id="cardMonth">
         <div class="card-label">當月損益</div>
         <div class="card-value" id="monthNet">$0</div>
       </div>
-      <div class="card" id="cardYear">
-        <div class="card-label">當年損益</div>
-        <div class="card-value" id="yearNet">$0</div>
+      <div class="card" id="cardWeek">
+        <div class="card-label">當週損益</div>
+        <div class="card-value" id="weekNet">$0</div>
       </div>
     </section>
 
@@ -129,19 +133,6 @@
       </div>
       <div class="chart-wrapper">
         <canvas id="profitChart"></canvas>
-      </div>
-    </section>
-
-    <!-- 每日彙總 -->
-    <section class="daily-section">
-      <div class="section-header">
-        <div class="section-title">每日彙總</div>
-      </div>
-      <div class="table-wrapper">
-        <table>
-          <thead><tr><th>日期</th><th>贏</th><th>輸</th><th>當日損益</th></tr></thead>
-          <tbody id="dailyTableBody"></tbody>
-        </table>
       </div>
     </section>
 

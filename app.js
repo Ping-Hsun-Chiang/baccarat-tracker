@@ -115,7 +115,6 @@ function render() {
   renderSummary();
   updateChartMonthLabel();
   renderChart();
-  renderDailyTable();
   renderRecordsTable();
 }
 
@@ -123,14 +122,27 @@ function calcNet(recs) {
   return recs.reduce((s, r) => s + (r.type === 'win' ? r.amount : -r.amount), 0);
 }
 
+function getWeekRange(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  const monday = new Date(d);
+  monday.setDate(d.getDate() + diffToMonday);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  return { monday: localDateStr(monday), sunday: localDateStr(sunday) };
+}
+
 function renderSummary() {
   const todayStr  = localDateStr(new Date());
   const thisMonth = todayStr.slice(0, 7);
   const thisYear  = todayStr.slice(0, 4);
+  const { monday, sunday } = getWeekRange(new Date());
 
   setCard('totalNet', calcNet(records));
-  setCard('monthNet', calcNet(records.filter(r => r.date.startsWith(thisMonth))));
   setCard('yearNet',  calcNet(records.filter(r => r.date.startsWith(thisYear))));
+  setCard('monthNet', calcNet(records.filter(r => r.date.startsWith(thisMonth))));
+  setCard('weekNet',  calcNet(records.filter(r => r.date >= monday && r.date <= sunday)));
 }
 
 function setCard(id, net) {
@@ -203,7 +215,11 @@ function renderChart() {
       },
       scales: {
         x: {
-          ticks: { color: '#475569', font: { size: 11, family: 'Inter' } },
+          ticks: {
+            color: '#475569',
+            font: { size: 11, family: 'Inter' },
+            callback: (val, index) => chartMonth ? parseInt(dates[index].split('-')[2]) : dates[index],
+          },
           grid:  { color: 'rgba(255,255,255,0.04)' },
           border:{ color: 'transparent' },
         },
@@ -218,31 +234,6 @@ function renderChart() {
         },
       },
     },
-  });
-}
-
-function renderDailyTable() {
-  const daily = groupByDate([...records].reverse());
-  const dates = Object.keys(daily).sort().reverse();
-  const tbody = document.getElementById('dailyTableBody');
-  tbody.innerHTML = '';
-
-  if (dates.length === 0) {
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="4">尚無記錄</td></tr>';
-    return;
-  }
-
-  dates.forEach(date => {
-    const { win, loss } = daily[date];
-    const net = win - loss;
-    const tr  = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${date}</td>
-      <td class="amount-win">${win  > 0 ? formatMoney(win, false)  : '-'}</td>
-      <td class="amount-loss">${loss > 0 ? formatMoney(loss, false) : '-'}</td>
-      <td class="${net >= 0 ? 'amount-positive' : 'amount-negative'}">${formatMoney(net, true)}</td>
-    `;
-    tbody.appendChild(tr);
   });
 }
 
