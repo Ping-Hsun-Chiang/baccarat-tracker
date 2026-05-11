@@ -4,6 +4,7 @@ let records = [];
 let chart   = null;
 let pendingAction = null;
 let chartMonth    = null;
+let recordsCollapsed = false;
 
 // ── Init (called by auth.js after login) ──────────────────────────────────────
 
@@ -281,6 +282,14 @@ function formatMoney(n, signed) {
   if (n > 0) return '+' + abs;
   if (n < 0) return '-' + abs;
   return abs;
+}
+
+// ── Toggle records ────────────────────────────────────────────────────────────
+
+function toggleRecords() {
+  recordsCollapsed = !recordsCollapsed;
+  document.getElementById('recordsTableWrapper').style.display = recordsCollapsed ? 'none' : '';
+  document.getElementById('btnToggleRecords').textContent = recordsCollapsed ? '▼ 展開' : '▲ 收起';
 }
 
 // ── Modal ─────────────────────────────────────────────────────────────────────

@@ -409,6 +409,27 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   font-size: 0.85rem;
 }
 
+/* ── Records section actions ── */
+.records-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-toggle-records {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  padding: 5px 12px;
+  font-size: 0.75rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.btn-toggle-records:hover { border-color: var(--gold); color: var(--gold); }
+
 /* ── Danger button ── */
 .btn-danger {
   background: transparent;
@@ -673,5 +694,6 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   .input-blocks { grid-template-columns: 1fr; }
   .shared-fields { flex-direction: column; }
   .section-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .records-actions { width: 100%; justify-content: flex-end; }
   header h1 { font-size: 1.8rem; }
 }

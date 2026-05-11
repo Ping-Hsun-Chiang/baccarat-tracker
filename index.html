@@ -140,9 +140,12 @@
     <section class="records-section">
       <div class="section-header">
         <div class="section-title">明細記錄</div>
-        <button class="btn-danger" onclick="confirmClearAll()">清除全部</button>
+        <div class="records-actions">
+          <button class="btn-toggle-records" id="btnToggleRecords" onclick="toggleRecords()">▲ 收起</button>
+          <button class="btn-danger" onclick="confirmClearAll()">清除全部</button>
+        </div>
       </div>
-      <div class="table-wrapper">
+      <div class="table-wrapper" id="recordsTableWrapper">
         <table>
           <thead><tr><th>日期</th><th>結果</th><th>金額</th><th>備註</th><th></th></tr></thead>
           <tbody id="recordsTableBody"></tbody>
